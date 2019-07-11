@@ -15,6 +15,7 @@ function main() {
   local config_path="${configurations_path}/config.json"
   local key_file_path="${configurations_path}/secrets/homeforjla.json"
   local saved_tokens_path="${configurations_path}/tokens/homeforjla-tokens.json"
+  server/configurations/tokens/homeforjla-tokens.json
 
   pushd $install_path
 
@@ -22,7 +23,7 @@ function main() {
     echo "Cloning and updating repo."
     git clone https://github.com/greghesp/assistant-relay.git
     cd assistant-relay
-    git co -b production
+    git checkout -b production
     sed -i 's/"google-assistant": "^0.2.0"/"google-assistant": "^0.5.4"/g' package.json
     npm install
     npm audit fix
