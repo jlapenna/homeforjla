@@ -30,7 +30,7 @@ function main() {
   else
     echo "Pulling and rebasing repo."
     pushd assistant-relay
-    git pull
+    git pull origin master
     git rebase master
   fi
 
