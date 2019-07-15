@@ -35,9 +35,9 @@ function main() {
   fi
 
   echo "Copying secrets and configs."
-  cp ${repo_path}/raspberrypi/assistant_relay_config.json ${config_path} 
-  cp ${repo_path}/private/assistant_relay_client_secret.json ${key_file_path}
-  cp ${repo_path}/private/assistant_relay_homeforjla_tokens.json ${saved_tokens_path}
+  cp ${repo_path}/raspberrypi/assistant_relay/config.json ${config_path} 
+  cp ${repo_path}/private/raspberrypi/assistant_relay/homeforjla.json ${key_file_path}
+  cp ${repo_path}/private/raspberrypi/assistant_relay/homeforjla_tokens.json ${saved_tokens_path}
   sed \
       -e "s#INSTALL_PATH#${install_path}#g" \
       -i ${config_path};
