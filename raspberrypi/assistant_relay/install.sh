@@ -43,6 +43,14 @@ function main() {
       -i ${config_path};
   git commit -a -m'Update configuration and client secrets.'
 
+  echo "Setting up service."
+  sudo cp ${repo_path}/raspberrypi/assistant_relay/assistant_relay.service \
+      /lib/systemd/system/
+  sudo systemctl start assistant_relay
+  curl -d '{"command":"hello world", "user":"homeforjla", "broadcast":"true"}' \
+      -H "Content-Type: application/json" -X POST \
+      "http://raspberrypi.lan:3000/assistant"
+
   popd
   popd
 }
