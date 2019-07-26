@@ -4,6 +4,7 @@
 
 *   https://coral.withgoogle.com/docs/enviro-board/datasheet/
 *   https://coral.withgoogle.com/docs/enviro-board/get-started/
+*   https://github.com/f0cal/google-coral/issues/21
 
 ### Python
 
