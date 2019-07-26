@@ -1,3 +1,6 @@
+echo "Installing utilities"
+sudo apt-get install -y screen
+
 echo "Setting up git"
 sudo apt-get install -y git
 git config --global user.email jlapenna@gmail.com;

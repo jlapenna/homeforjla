@@ -19,34 +19,28 @@ function main() {
   pushd $install_path
 
   if [[ ! -d "assistant-relay" ]]; then
-    echo "Cloning and updating repo."
-    git clone https://github.com/greghesp/assistant-relay.git
+    echo "Installing pre-reqs"
+    sudo npm i pm2
+    echo ""
+    echo "Please download a release to ~/assistant-relay.zip:"
+    echo "  https://github.com/greghesp/assistant-relay/releases"
+    mkdir assistant-relay
+    unzip assistant-relay.zip -d assistant-relay
     pushd assistant-relay
-    git checkout -b production
-    sed -i 's/"google-assistant": "^0.2.0"/"google-assistant": "^0.5.4"/g' package.json
     npm install
-    npm audit fix
-    git commit -a -m'Update google-assistant configuration'
+    echo ""
+    echo "Be sure to 'npm run start then visit port 3000'"
+    popd
   else
     echo "Pulling and rebasing repo."
     pushd assistant-relay
-    git pull origin master
-    git rebase master
+    popd
   fi
-
-  echo "Copying secrets and configs."
-  cp ${repo_path}/raspberrypi/assistant_relay/config.json ${config_path} 
-  cp ${repo_path}/private/raspberrypi/assistant_relay/homeforjla.json ${key_file_path}
-  cp ${repo_path}/private/raspberrypi/assistant_relay/homeforjla_tokens.json ${saved_tokens_path}
-  sed \
-      -e "s#INSTALL_PATH#${install_path}#g" \
-      -i ${config_path};
-  git commit -a -m'Update configuration and client secrets.'
 
   echo "Setting up service."
   sudo cp ${repo_path}/raspberrypi/assistant_relay/assistant_relay.service \
       /lib/systemd/system/
-  sudo systemctl start assistant_relay
+  sudo systemctl enable assistant_relay
   curl -d '{"command":"hello world", "user":"homeforjla", "broadcast":"true"}' \
       -H "Content-Type: application/json" -X POST \
       "http://raspberrypi.lan:3000/assistant"
