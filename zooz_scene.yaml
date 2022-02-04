@@ -29,6 +29,16 @@ blueprint:
       selector:
         action:
       default: []
+    tap_top_double_actions:
+      name: Tap Top Double-tap Actions
+      selector:
+        action:
+      default: []
+    tap_bottom_double_actions:
+      name: Tap Bottom Double-tap Actions
+      selector:
+        action:
+      default: []
 
 mode: single
 
@@ -67,6 +77,16 @@ action:
                   - condition: template
                     value_template: "{{ trigger.event.data.label == 'Scene 002' and trigger.event.data.value == 'KeyPressed' }}"
                 sequence: !input tap_bottom_actions
+            # IF tap top double-tap
+              - conditions:
+                  - condition: template
+                    value_template: "{{ trigger.event.data.label == 'Scene 001' and trigger.event.data.value == 'KeyPressed2x' }}"
+                sequence: !input tap_top_double_actions
+            # IF tap bottom double-tap
+              - conditions:
+                  - condition: template
+                    value_template: "{{ trigger.event.data.label == 'Scene 001' and trigger.event.data.value == 'KeyPressed2x' }}"
+                sequence: !input tap_bottom_double_actions
             # ELSE: unhandled scene label/value
             default:
               - service: system_log.write
