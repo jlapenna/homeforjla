@@ -67,12 +67,12 @@ action:
             value_template: "{{ trigger.event.data.command_class_name == 'Central Scene' }}"
         sequence:
           - choose:
-            # IF tap top left
+            # IF tap top
               - conditions:
                   - condition: template
                     value_template: "{{ trigger.event.data.label == 'Scene 001' and trigger.event.data.value == 'KeyPressed' }}"
                 sequence: !input tap_top_actions
-            # IF tap top right
+            # IF tap top
               - conditions:
                   - condition: template
                     value_template: "{{ trigger.event.data.label == 'Scene 002' and trigger.event.data.value == 'KeyPressed' }}"
@@ -85,7 +85,7 @@ action:
             # IF tap bottom double-tap
               - conditions:
                   - condition: template
-                    value_template: "{{ trigger.event.data.label == 'Scene 001' and trigger.event.data.value == 'KeyPressed2x' }}"
+                    value_template: "{{ trigger.event.data.label == 'Scene 002' and trigger.event.data.value == 'KeyPressed2x' }}"
                 sequence: !input tap_bottom_double_actions
             # ELSE: unhandled scene label/value
             default:

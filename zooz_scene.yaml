@@ -85,7 +85,7 @@ action:
             # IF tap bottom double-tap
               - conditions:
                   - condition: template
-                    value_template: "{{ trigger.event.data.label == 'Scene 001' and trigger.event.data.value == 'KeyPressed2x' }}"
+                    value_template: "{{ trigger.event.data.label == 'Scene 002' and trigger.event.data.value == 'KeyPressed2x' }}"
                 sequence: !input tap_bottom_double_actions
             # ELSE: unhandled scene label/value
             default:
