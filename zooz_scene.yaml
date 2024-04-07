@@ -1,5 +1,5 @@
 blueprint:
-  name: ZWaveJS - Zooz Switch Scene Controller
+  name: Zooz Switch Scene Controller
   description: |
     Perform actions when Scenes are triggered by Zooz ZEN71 Switches'
     
