@@ -1,0 +1,408 @@
+substitutions:
+  name: atom-dial
+  friendly_name: atom-dial
+  area: "Joezone"
+
+  ha_media_player_entity: media_player.joezone_speaker
+  ha_page_selector: input_select.atom_dial_page_selector
+
+  default_page: media_page
+
+<<: !include common/base-atom-dial.yaml
+
+esphome:
+  name: "${name}"
+  friendly_name: "${friendly_name}"
+  name_add_mac_suffix: false
+  platformio_options:
+    board_build.flash_mode: dio
+  on_boot:
+    priority: 600
+    then:
+      - light.turn_on: my_backlight
+
+api:
+  encryption:
+    key: !secret encryption_key
+  on_client_connected:
+    - if:
+        condition:
+          lambda: 'return (0 == client_info.find("Home Assistant "));'
+        then:
+          - logger.log: "API Connected"
+          - delay: 1s
+          - lvgl.widget.hide: boot_screen
+        else:
+          - logger.log: "API not connected."
+  on_client_disconnected:
+    - if:
+        condition:
+          lambda: 'return (0 == client_info.find("Home Assistant "));'
+        then:
+          - logger.log: "API Disconnected"
+          - lvgl.widget.show: boot_screen
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+external_components:
+  - source: github://clydebarrow/esphome@lvgl
+    refresh: 90min
+    components: [ lvgl ]
+
+i2c:
+  - id: bus_internal #required by touchscreen.ft5x06
+    sda: GPIO11
+    scl: GPIO12
+    scan: False
+
+touchscreen:
+  id: my_touchscreen
+  platform: ft5x06
+  i2c_id: bus_internal
+  address: 0x38
+  on_release:
+    - if:
+        condition: lvgl.is_paused
+        then:
+          - logger.log: "LVGL resuuming."
+          - lvgl.resume:
+          - lvgl.widget.redraw:
+          - light.turn_on: my_backlight
+
+uart:
+  tx_pin: GPIO2
+  rx_pin: GPIO1
+  baud_rate: 256000
+  parity: NONE
+  stop_bits: 1
+
+spi:
+  mosi_pin: GPIO5
+  clk_pin: GPIO6
+
+display:
+  - platform: ili9xxx
+    id: my_display
+    model: gc9a01a
+    auto_clear_enabled: false
+    update_interval: never
+    reset_pin: GPIO8
+    cs_pin: GPIO7
+    dc_pin: GPIO4
+    dimensions: 
+      height: 240
+      width: 240
+
+output:
+  - platform: ledc
+    id: my_backlight_out
+    pin: GPIO9
+    min_power: 0
+    max_power: 1
+  - platform: ledc
+    id: my_rtttl_out
+    pin: GPIO3
+
+light:
+  - platform: monochromatic
+    id: my_backlight
+    name: "Backlight"
+    output: my_backlight_out
+    default_transition_length: 250ms
+
+rtttl:
+  id: my_rtttl
+  output: my_rtttl_out
+
+binary_sensor:
+  - platform: gpio
+    id: my_button
+    internal: true
+    pin:
+      number: GPIO42
+    name: Button
+    on_press:
+      - if:
+          condition: lvgl.is_paused
+          then:
+            - logger.log: "Resuming from pause (button)"
+            - lvgl.resume
+      - lvgl.page.show: $default_page
+      - homeassistant.service:
+          service: input_select.select_option
+          data:
+            entity_id: $ha_page_selector
+            option: $default_page
+
+sensor:
+  - platform: rotary_encoder
+    id: rotaryencoder
+    resolution: 1
+    min_value: 0
+    max_value: 100
+    pin_a: 
+      number: GPIO40
+      mode:
+       input: true
+       pullup: true
+    pin_b: 
+      number: GPIO41
+      mode:
+       input: true
+       pullup: true
+    accuracy_decimals: 0
+    on_value:
+      - if:
+          condition: lvgl.is_paused
+          then:
+            - logger.log: "Resuming from pause (rotary)"
+            - lvgl.resume
+    on_clockwise:
+      - if:
+          condition: lvgl.is_paused
+          then:
+            - logger.log: "LVGL resuming"
+            - lvgl.resume:
+            - lvgl.widget.redraw:
+            - light.turn_on: my_backlight
+      - if:
+          condition:
+            - lambda: 'return id(page_selector_state).state == "media_page";'
+          then:
+            - script.execute: volume_up
+            # - lvgl.arc.update:
+            #     id: volume_arc
+            #     value: !lambda return lvgl.arc.get_value(volume_arc) + 1;
+    on_anticlockwise:
+      - if:
+          condition: lvgl.is_paused
+          then:
+            - logger.log: "LVGL resuming"
+            - lvgl.resume:
+            - lvgl.widget.redraw:
+            - light.turn_on: my_backlight
+      - if:
+          condition:
+            - lambda: 'return id(page_selector_state).state == "media_page";'
+          then:
+            - script.execute: volume_down
+            # - lvgl.arc.update:
+            #     id: volume_arc
+            #     value: !lambda return lvgl.arc.get_value(volume_arc) - 1;
+
+  # Receives volume level changes and updates the arc.
+  - platform: homeassistant  
+    id: event_media_player_volume
+    accuracy_decimals: 2
+    entity_id: $ha_media_player_entity
+    attribute: volume_level
+    filters:
+     - multiply: 100
+     - round: 0
+    on_value:
+       - lvgl.arc.update:
+           id: volume_arc
+           value: !lambda 'return x;'
+       - lvgl.label.update:
+           id: current_volume_label
+           text: !lambda |-
+             return str_sprintf("%.0f", round(x)).c_str();
+
+number:
+  - platform: template
+    id: my_backlight_timeout
+    name: Backlight Timeout
+    optimistic: true
+    unit_of_measurement: "s"
+    initial_value: 30
+    restore_value: true
+    min_value: 10
+    max_value: 90
+    step: 10
+    mode: auto # auto / box / slider
+
+# UI Assets
+image:
+  - file: https://esphome.io/_static/favicon-512x512.png
+    id: boot_logo
+    resize: 100x100
+    type: RGB565
+    use_transparency: true
+
+# UI State Tracking
+text_sensor:
+  - platform: homeassistant
+    id: page_selector_state
+    entity_id: $ha_page_selector
+    on_value:
+      - if:
+          condition: lvgl.is_paused
+          then: lvgl.resume
+      - if:
+          condition:
+            - lambda: return id(page_selector_state).state == "example_page";
+          then:
+            - lvgl.page.show: example_page
+      - if:
+          condition:
+            - lambda: 'return id(page_selector_state).state == "media_page";'
+          then:
+            - lvgl.page.show: media_page
+# LVGL
+lvgl:
+  displays:
+    - my_display
+  touchscreens:
+    - my_touchscreen
+  on_idle:
+    timeout: !lambda return (id(my_backlight_timeout).state * 1000);
+    then:
+      - lvgl.pause:
+      - light.turn_off:
+          id: my_backlight
+          transition_length: 2s
+      - logger.log: "LVGL is idle"
+  top_layer:
+    widgets:
+      # make sure it's the last one in this list:
+      - obj:
+          id: boot_screen
+          x: 0
+          y: 0
+          width: 100%
+          height: 100%
+          bg_color: 0x000000
+          bg_opa: COVER
+          radius: 0
+          pad_all: 0
+          border_width: 0
+          widgets:
+            - image:
+                align: CENTER
+                src: boot_logo
+                y: -20
+            - spinner:
+                align: CENTER
+                y: 65
+                height: 50
+                width: 50
+                spin_time: 1s
+                arc_length: 60deg
+                arc_width: 8
+                indicator:
+                  arc_color: 0x18bcf2
+                  arc_width: 8
+  page_wrap: true
+  pages:
+    - id: example_page
+      bg_color: 0x000000
+      widgets:
+        - label:
+            id: example_page_brightness_label
+            align: CENTER
+            text: "EXAMPLE"
+    - id: media_page
+      bg_color: 0x000000
+      widgets:
+        - arc:
+            id: volume_arc
+            width: 100%
+            height: 100%
+            adjustable: true
+            group: general
+            scroll_on_focus: true
+            value: 50
+            min_value: 0
+            max_value: 100
+            arc_color: 0xFF0000
+            indicator:
+              arc_color: 0xF000FF
+              pressed:
+                arc_color: 0xFFFF00
+              focused:
+                arc_color: 0x808080
+            # Its important this is "on_release" otherwise, an update from the
+            # event_media_player_volume would trigger the write!
+            on_release:
+              script.execute:
+                  id: volume_set
+                  volume_level: !lambda return x;
+        - label:
+            id: current_volume_label
+            align: CENTER
+            text: "TBD"
+            text_font: montserrat_48
+            y: 60
+
+script:
+  - id: volume_set
+    parameters:
+      volume_level: int
+    then:
+      - homeassistant.service:
+          service: media_player.volume_set
+          data:
+            volume_level: !lambda |-
+              if (volume_level == 0) {
+                return 0.f;
+              } else {
+                return float(volume_level / 100.00f);
+              }
+            entity_id: $ha_media_player_entity
+      - logger.log:
+          format: "script: volume_set: %.1i"
+          args: [ 'volume_level' ]
+  - id: volume_up
+    then:
+      - homeassistant.service:
+          service: media_player.volume_up
+          data:
+            entity_id: $ha_media_player_entity
+      - logger.log: "Volume up"
+  - id: volume_down
+    then:
+      - homeassistant.service:
+          service: media_player.volume_down
+          data:
+            entity_id: $ha_media_player_entity
+      - logger.log: "Volume down"
+
+
+# List of available c++ helpers provided by esphome:
+#   https://esphome.io/api/helpers_8cpp
+# Pending LVGL docs for esphome
+#   https://deploy-preview-3678--esphome.netlify.app/components/lvgl.html#label
+
+# https://community.home-assistant.io/t/m5stack-dial-esp32-s3-smart-rotary-knob/623518
+#   Random peson's impl: https://github.com/dgaust/esphome_files/blob/main/dial_lvgl
+#   LVGL Examples: https://gist.github.com/clydebarrow/ef89e9a93bd44771483b9144ae9042a1
+# Writing logs in lambdas:
+#   esp_log_printf_(0, "TAG", 1, to_string(float(volume_level / 100.00f)).c_str());
+
+# Media Player State: <template TemplateState(
+# <state media_player.joezone_speaker=playing;
+#   volume_level=0.699999988079071
+#   is_volume_muted=False
+#   media_content_id=n0GXk_T2zs8
+#   media_content_type=music
+#   media_duration=209
+#   media_position=1.219
+#   media_position_updated_at=2024-07-26T09:05:37.631480-07:00
+#   media_title=Training Season
+#   media_artist=Dua Lipa
+#   media_album_name=Radical
+#   Optimism
+#   app_id=2DB7CC49
+#  app_name=YouTube Music
+#   entity_picture_local=/api/media_player_proxy/media_player.joezone_speaker?token=44d&cache=5
+#   device_class=speaker
+#   entity_picture=https://lh3.googleusercontent.com/5d51ZlGjNP_=w544-h544-l90-rj
+#   friendly_name=Joezone speaker
+#   supported_features=152511 @
+#   2024-07-26T09:05:36.658850-07:00
+# >)>
+
+# https://esphome.io/api/helpers_8cpp_source.html
+# https://esphome.io/api/namespaceesphome.html
